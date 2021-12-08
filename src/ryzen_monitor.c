@@ -305,6 +305,7 @@ int select_pm_table_version(unsigned int version, pm_table *pmt, unsigned char *
         case 0x400005: pm_table_0x400005(pmt, pm_buf); break; //Ryzen 5700G
         case 0x240903: pm_table_0x240903(pmt, pm_buf); break; //Ryzen 3700X / 3800X
         case 0x240803: pm_table_0x240803(pmt, pm_buf); break; //Ryzen 3950X
+        case 0x100100: pm_table_zenp_cpu(pmt, pm_buf); break; //All Zen+ based CPU, excluding APUs and Threadripper
         default:
             return 0;
     }

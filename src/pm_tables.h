@@ -254,5 +254,6 @@ void pm_table_0x380805(pm_table *pmt, void* base_addr);
 void pm_table_0x400005(pm_table *pmt, void* base_addr);
 void pm_table_0x240903(pm_table *pmt, void* base_addr);
 void pm_table_0x240803(pm_table *pmt, void* base_addr);
+void pm_table_zenp_cpu(pm_table *pmt, void* base_addr);
 
 #endif
