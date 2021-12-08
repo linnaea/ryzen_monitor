@@ -151,20 +151,20 @@ smu_return_val smu_init_parse(smu_obj_t* obj) {
         return SMU_Return_RWError;
 
     // This file doesn't need to exist if PM Tables aren't supported.
-    if (!try_open_path(PM_VERSION_PATH, O_RDONLY, &tmp_fd))
+    if (!try_open_path(PM_SIZE_PATH, O_RDONLY, &tmp_fd))
         return SMU_Return_OK;
     
-    ret = read(tmp_fd, &obj->pm_table_version, sizeof(obj->pm_table_version));
+    ret = read(tmp_fd, &obj->pm_table_size, sizeof(obj->pm_table_size));
     close(tmp_fd);
 
     if (ret <= 0)
         return SMU_Return_RWError;
 
-    // If the PM table contains a version, a size file MUST exist.
-    if (!try_open_path(PM_SIZE_PATH, O_RDONLY, &tmp_fd))
-        return SMU_Return_RWError;
+    // Some platforms will also have a version file.
+    if (!try_open_path(PM_VERSION_PATH, O_RDONLY, &tmp_fd))
+        return SMU_Return_OK;
     
-    ret = read(tmp_fd, &obj->pm_table_size, sizeof(obj->pm_table_size));
+    ret = read(tmp_fd, &obj->pm_table_version, sizeof(obj->pm_table_version));
     close(tmp_fd);
 
     if (ret <= 0)
