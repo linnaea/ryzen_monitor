@@ -35,7 +35,7 @@ void pm_table_zenp_cpu(pm_table *pmt, void* base_addr) {
     pmt->TDC_LIMIT       = pm_element( 2);
     pmt->TDC_VALUE       = pm_element( 3);
     pmt->EDC_LIMIT       = pm_element( 4);
-    // 5: might be fast EDC
+    // 5 might be fast EDC
     pmt->EDC_VALUE       = pm_element( 6);
     pmt->THM_LIMIT       = pm_element( 7);
     pmt->THM_VALUE       = pm_element( 8);
@@ -46,11 +46,12 @@ void pm_table_zenp_cpu(pm_table *pmt, void* base_addr) {
     pmt->SOC_SET_VOLTAGE = pm_element(13);
     pmt->V_VDDM          = pm_element(14); //probably
     pmt->V_VDDP          = pm_element(15);
+    pmt->VDDCR_CPU_POWER = pm_element(16);
+    pmt->VDDCR_SOC_POWER = pm_element(17);
 
-    // 16/17 repeats at 23/26
     // 18/19 unknown
 
-    pmt->PACKAGE_POWER          = pm_element(20);
+    pmt->SOCKET_POWER           = pm_element(20);
     pmt->CPU_TELEMETRY_VOLTAGE  = pm_element(21);
     pmt->CPU_TELEMETRY_CURRENT  = pm_element(22);
     pmt->CPU_TELEMETRY_POWER    = pm_element(23);
@@ -58,10 +59,12 @@ void pm_table_zenp_cpu(pm_table *pmt, void* base_addr) {
     pmt->SOC_TELEMETRY_CURRENT  = pm_element(25);
     pmt->SOC_TELEMETRY_POWER    = pm_element(26);
 
-    // 27-32 unknown
+    // 28 looks like some multipler? fraction part is always .25/.5/.75/.0
+    pmt->PEAK_VOLTAGE           = pm_element(28);
+    // 29-32 unknown
 
-    pmt->FCLK_FREQ = pmt->UCLK_FREQ = pmt->MEMCLK_FREQ = pm_element(33); // always coupled on Zen/Zen+
-    // 33/34/35/36 might be UCLK frequency table?
+    pmt->FCLK_FREQ_EFF = pmt->FCLK_FREQ = pmt->UCLK_FREQ = pmt->MEMCLK_FREQ = pm_element(33); // always coupled on Zen/Zen+
+    // 33/34/35/36 might be frequency table?
     // 37-39 unknown
 
     assign_pm_elements_8_consec(pmt->CORE_POWER       , 40);
@@ -86,9 +89,11 @@ void pm_table_zenp_cpu(pm_table *pmt, void* base_addr) {
     assign_pm_elements_2(pmt->L3_FREQ          , 146, 147);
 
     // 148-154 unknown
-    // 155: package power, repeated
+    // pmt->PACKAGE_POWER          = pm_element(155);
     // 156-162 unknown
 
     pmt->min_size = 148*4; //(Highest element we access + 1)*4.
                            //Needed to avoid illegal memory access
+
+    pmt->PC6 = 0; // Package C6 is broken for Zen+ on Linux, probable one of the always 0 entries at 31/32/157/158
 }
