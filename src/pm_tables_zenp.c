@@ -88,9 +88,12 @@ void pm_table_zenp_cpu(pm_table *pmt, void* base_addr) {
     assign_pm_elements_2(pmt->L3_IDDMAX        , 144, 145);
     assign_pm_elements_2(pmt->L3_FREQ          , 146, 147);
 
-    // 148-154 unknown
+    pmt->SOC_TEMP        = pm_element(148); // maybe
+    // 149-154 unknown
     // pmt->PACKAGE_POWER          = pm_element(155);
-    // 156-162 unknown
+    // 156-160 unknown
+    pmt->PEAK_TEMP       = pm_element(161); // fluctuates a lot, might be wrong.
+    // 162 seems like percentage of something remaning, goes down from 100
 
     pmt->min_size = 148*4; //(Highest element we access + 1)*4.
                            //Needed to avoid illegal memory access
