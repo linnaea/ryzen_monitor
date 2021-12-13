@@ -29,6 +29,8 @@ void pm_table_zenp_cpu(pm_table *pmt, void* base_addr) {
     pmt->max_cores = 8; //Number of cores supported by this PM table version
     pmt->max_l3 = 2; //Number of L3 caches supported by this PM table version
     pmt->zen_version = 1; //Zen+
+    pmt->experimental = 1;
+    pmt->powersum_unclear = 1;
 
     pmt->PPT_LIMIT       = pm_element( 0);
     pmt->PPT_VALUE       = pm_element( 1);
@@ -59,16 +61,15 @@ void pm_table_zenp_cpu(pm_table *pmt, void* base_addr) {
     pmt->SOC_TELEMETRY_CURRENT  = pm_element(25);
     pmt->SOC_TELEMETRY_POWER    = pm_element(26);
 
-    // 28 looks like some multipler? fraction part is always .25/.5/.75/.0
+    // 27 looks like some multipler? fraction part is always .25/.5/.75/.0
     pmt->PEAK_VOLTAGE           = pm_element(28);
     // 29-32 unknown
 
-    pmt->FCLK_FREQ_EFF = pmt->FCLK_FREQ = pmt->UCLK_FREQ = pmt->MEMCLK_FREQ = pm_element(33); // always coupled on Zen/Zen+
-    // 33/34/35/36 might be frequency table?
-    // 37-39 unknown
+    pmt->FCLK_FREQ = pmt->UCLK_FREQ = pmt->MEMCLK_FREQ = pm_element(33); // always coupled on Zen/Zen+
+    // 33-39 might be frequency table
 
     assign_pm_elements_8_consec(pmt->CORE_POWER       , 40);
-    // followed by 8 zeroes, probably something not implemented per core
+    // followed by 8 zeroes, probably something not implemented
     assign_pm_elements_8_consec(pmt->CORE_VOLTAGE     , 56); // always the same value, might be wrong
     assign_pm_elements_8_consec(pmt->CORE_TEMP        , 64);
     assign_pm_elements_8_consec(pmt->CORE_FIT         , 72);
@@ -80,7 +81,7 @@ void pm_table_zenp_cpu(pm_table *pmt, void* base_addr) {
     assign_pm_elements_8_consec(pmt->CORE_CC6         , 120);
     assign_pm_elements_8_consec(pmt->CORE_PSTATE      , 128);
 
-    // Copied from Zen2, seems legit.
+    // Copied from Zen2, L3 power consumption seems too low
     assign_pm_elements_2(pmt->L3_LOGIC_POWER   , 136, 137);
     assign_pm_elements_2(pmt->L3_VDDM_POWER    , 138, 139);
     assign_pm_elements_2(pmt->L3_TEMP          , 140, 141);
@@ -90,13 +91,14 @@ void pm_table_zenp_cpu(pm_table *pmt, void* base_addr) {
 
     pmt->SOC_TEMP        = pm_element(148); // maybe
     // 149-154 unknown
-    // pmt->PACKAGE_POWER          = pm_element(155);
+    // pmt->PACKAGE_POWER   = pm_element(155); // reports same number as #20
     // 156-160 unknown
-    pmt->PEAK_TEMP       = pm_element(161); // fluctuates a lot, might be wrong.
-    // 162 seems like percentage of something remaning, goes down from 100
 
-    pmt->min_size = 148*4; //(Highest element we access + 1)*4.
+    // seems too high, tracks SoC+PPT pretty closely.
+    // Isn't PPT supposed to include SoC power?
+    // pmt->SOCKET_POWER    = pm_element(161);
+    // 162 seems like percentage of something remaning, usually stays at 100 and goes down from here
+
+    pmt->min_size = 149*4; //(Highest element we access + 1)*4.
                            //Needed to avoid illegal memory access
-
-    pmt->PC6 = 0; // Package C6 is broken for Zen+ on Linux, probable one of the always 0 entries at 31/32/157/158
 }
