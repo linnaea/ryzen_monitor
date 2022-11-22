@@ -1,6 +1,6 @@
 /**
  * Ryzen SMU Userspace Sensor Monitor
- * Copyright (C) 2021
+ * Copyright (C) 2021-2022
  *    Florian Huehn <hattedsquirrel@gmail.com> (https://hattedsquirrel.net)
  *
  * This program is free software: you can redistribute it and/or modify
@@ -22,6 +22,7 @@
 
 #define PMT_MAX_NUM_L3      4
 #define PMT_MAX_NUM_CORES   16
+#define PMT_MAX_NUM_CLKS    8
 
 typedef struct {
     unsigned int version;  //PM table version
@@ -51,6 +52,10 @@ typedef struct {
     float *THM_VALUE_SOC;
     float *THM_LIMIT_GFX;
     float *THM_VALUE_GFX;
+    float *STT_LIMIT_APU;
+    float *STT_VALUE_APU;
+    float *STT_LIMIT_DGPU;
+    float *STT_VALUE_DGPU;
     float *FIT_LIMIT;
     float *FIT_VALUE;
     float *EDC_LIMIT;
@@ -59,6 +64,10 @@ typedef struct {
     float *EDC_VALUE_SOC;
     float *VID_LIMIT;
     float *VID_VALUE;
+    float *PSI0_LIMIT_VDD;
+    float *PSI0_RESIDENCY_VDD;
+    float *PSI0_LIMIT_SOC;
+    float *PSI0_RESIDENCY_SOC;
     float *PPT_WC;
     float *PPT_ACTUAL;
     float *TDC_WC;
@@ -77,6 +86,7 @@ typedef struct {
     float *VDD18_POWER;
     float *ROC_POWER;
     float *SOCKET_POWER;
+    float *CCLK_GLOBAL_FREQ;
     float *GLOB_FREQUENCY;
     float *STAPM_FREQUENCY;
     float *PPT_FREQUENCY;
@@ -84,6 +94,7 @@ typedef struct {
     float *PPT_FREQUENCY_APU;
     float *TDC_FREQUENCY;
     float *THM_FREQUENCY;
+    float *HTFMAX_FREQUENCY;
     float *PROCHOT_FREQUENCY;
     float *VOLTAGE_FREQUENCY;
     float *CCA_FREQUENCY;
@@ -102,7 +113,9 @@ typedef struct {
     float *FCLK_FREQ;
     float *FCLK_FREQ_EFF;
     float *UCLK_FREQ;
+    float *UCLK_FREQ_EFF;
     float *MEMCLK_FREQ;
+    float *MEMCLK_FREQ_EFF;
     float *FCLK_DRAM_SETPOINT;
     float *FCLK_DRAM_BUSY;
     float *FCLK_GMI_SETPOINT;
@@ -112,9 +125,11 @@ typedef struct {
     float *FCLK_MEM_LATENCY_SETPOINT;
     float *FCLK_MEM_LATENCY;
     float *FCLK_CCLK_SETPOINT;
-    float *FCLK_CCLK;
+    float *FCLK_CCLK_FREQ;
     float *FCLK_XGMI_SETPOINT;
     float *FCLK_XGMI_BUSY;
+    float *FCLK_GFX_SETPOINT;
+    float *FCLK_GFX_BUSY;
     float *CCM_READS;
     float *CCM_WRITES;
     float *IOMS;
@@ -133,7 +148,7 @@ typedef struct {
     float *LCLK_MAX_DPM[4];
     float *LCLK_MIN_DPM[4];
     float *SOCCLK_FREQ_EFF[4];
-    float *HUBCLK_FREQ_EFF[4];
+    float *SHUBCLK_FREQ_EFF[4];
     float *XGMI_SETPOINT;
     float *XGMI_BUSY;
     float *XGMI_LANE_WIDTH;
@@ -160,6 +175,10 @@ typedef struct {
     float *AVG_CORE_COUNT;
     float *CCLK_LIMIT;
     float *MAX_SOC_VOLTAGE;
+    float *DVO_VOLTAGE;
+    float *APML_POWER;
+    float *CPU_DC_BTC;
+    float *SOC_DC_BTC;
     float *DC_BTC;
     float *PACKAGE_POWER;
     float *CSTATE_BOOST;
@@ -182,7 +201,9 @@ typedef struct {
     float *WAFLCLK;
     float *DPM_BUSY;
     float *MP1_BUSY;
-    float *MP5_BUSY;
+    float *DPM_Skipped;
+    float *CORE_SETPOINT;
+    float *CORE_BUSY;
     float *CORE_POWER[PMT_MAX_NUM_CORES];
     float *CORE_VOLTAGE[PMT_MAX_NUM_CORES];
     float *CORE_TEMP[PMT_MAX_NUM_CORES];
@@ -199,8 +220,9 @@ typedef struct {
     float *CORE_PSTATE[PMT_MAX_NUM_CORES];
     float *CORE_FREQ_LIM_MAX[PMT_MAX_NUM_CORES];
     float *CORE_FREQ_LIM_MIN[PMT_MAX_NUM_CORES];
-    //float *CORE_CPPC_MAX[PMT_MAX_NUM_CORES];
-    //float *CORE_CPPC_MIN[PMT_MAX_NUM_CORES];
+    float *CORE_CPPC_MAX[PMT_MAX_NUM_CORES];
+    float *CORE_CPPC_MIN[PMT_MAX_NUM_CORES];
+    float *CORE_CPPC_EPP[PMT_MAX_NUM_CORES];
     float *CORE_unk[PMT_MAX_NUM_CORES];
     float *CORE_SC_LIMIT[PMT_MAX_NUM_CORES];
     float *CORE_SC_CAC[PMT_MAX_NUM_CORES];
@@ -223,6 +245,11 @@ typedef struct {
     float *L3_EDC_CAC[PMT_MAX_NUM_L3];
     float *L3_EDC_RESIDENCY[PMT_MAX_NUM_L3];
     float *L3_FLL_BTC[PMT_MAX_NUM_L3];
+  
+    // MP5_BUSY seems to be always at the end of the table
+    // It can be an array from 1 up to 4 values
+    // What is currently assigned to MP5_BUSY seems to be called DPM_Skipped
+    float *MP5_BUSY[PMT_MAX_NUM_L3];
 
     float *GFX_GLOB_FREQUENCY;
     float *GFX_STAPM_FREQUENCY;
@@ -231,6 +258,7 @@ typedef struct {
     float *GFX_PPT_FREQUENCY_APU;
     float *GFX_TDC_FREQUENCY;
     float *GFX_THM_FREQUENCY;
+    float *GFX_HTFMAX_FREQUENCY;
     float *GFX_PROCHOT_FREQUENCY;
     float *GFX_VOLTAGE_FREQUENCY;
     float *GFX_CCA_FREQUENCY;
@@ -240,20 +268,112 @@ typedef struct {
     float *GFX_IDDMAX;
     float *GFX_FREQ;
     float *GFX_FREQEFF;
+    float *GFX_SETPOINT;
     float *GFX_BUSY;
     float *GFX_CGPG;
     float *GFX_EDC_LIM;
     float *GFX_EDC_RESIDENCY;
     float *GFX_DEM_RESIDENCY;
+
+    float *DF_BUSY;
+    float *IOHC_BUSY;
+    float *MMHUB_BUSY;
+    float *ATHUB_BUSY;
+    float *OSSSYS_BUSY;
+    float *HDP_BUSY;
+    float *SDMA_BUSY;
+    float *SHUB_BUSY;
+    float *BIF_BUSY;
+    float *ACP_BUSY;
+    float *SST0_BUSY;
+    float *SST1_BUSY;
+    float *USB0_BUSY;
+    float *USB1_BUSY;
+    float *GCM_64B_READS;
+    float *GCM_64B_WRITES;
+    float *GCM_32B_READS_WRITES;
+    float *MMHUB_READS;
+    float *MMHUB_WRITES;
+    float *DCE_READS;
+    float *IO_READS_WRITES;
+    float *MAX_DRAM_BANDWIDTH;
+    float *VCN_BUSY;
+    float *VCN_DECODE;
+    float *VCN_ENCODE_GEN;
+    float *VCN_ENCODE_LOW;
+    float *VCN_ENCODE_REAL;
+    float *VCN_PG;
+    float *VCN_JPEG;
+
+    float *VCLK_FREQ;
+    float *VCLK_FREQ_EFF;
+    float *DCLK_FREQ;
+    float *DCLK_FREQ_EFF;
+    float *DCF_FREQ;
+    float *DCF_FREQ_EFF;
+    float *VCLK_STATE[PMT_MAX_NUM_CLKS];
+    float *DCLK_STATE[PMT_MAX_NUM_CLKS];
+    float *SOCCLK_STATE[PMT_MAX_NUM_CLKS];
+    float *LCLK_STATE[PMT_MAX_NUM_CLKS];
+    float *SHUB_STATE[PMT_MAX_NUM_CLKS];
+    float *MP0_STATE[PMT_MAX_NUM_CLKS];
+    float *DCFCLK_STATE[PMT_MAX_NUM_CLKS];
+    float *VCN_STATE_RESIDENCY[PMT_MAX_NUM_CLKS];
+    float *SOCCLK_STATE_RESIDENCY[PMT_MAX_NUM_CLKS];
+    float *LCLK_STATE_RESIDENCY[PMT_MAX_NUM_CLKS];
+    float *SHUB_STATE_RESIDENCY[PMT_MAX_NUM_CLKS];
+    float *MP0CLK_STATE_RESIDENCY[PMT_MAX_NUM_CLKS];
+    float *DCFCLK_STATE_RESIDENCY[PMT_MAX_NUM_CLKS];
+    float *VDDCR_SOC_VOLTAGE[PMT_MAX_NUM_CLKS];
+    float *CPUOFF;
+    float *CPUOFF_CNT;
+    float *GFXOFF;
+    float *GFXOFF_CNT;
+    float *VDDOFF;
+    float *VDDOFF_CNT;
+    float *ULV;
+    float *ULV_CNT;
+    float *ULV_VOLTAGE;
+    float *S0i2;
+    float *S0i2_CNT;
+    float *WHISPER;
+    float *WHISPER_CNT;
+    float *SELFREFRESH0;
+    float *SELFREFRESH1;
+    float *PLL_POWERDOWN_0;
+    float *PLL_POWERDOWN_1;
+    float *PLL_POWERDOWN_2;
+    float *PLL_POWERDOWN_3;
+    float *PLL_POWERDOWN_4;
+
+    float *DGPU_POWER;
+    float *DGPU_GFX_BUSY;
+    float *DGPU_FREQ_TARGET;
+    float *DISPLAY_COUNT;
+    float *FPS;
+
+    float *IO_DISPLAY_POWER;
+    float *IO_USB_POWER;
+    float *DDR_PHY_POWER;
+    float *MAX_CORE_VOLTAGE;
+
+    float *StapmTimeConstant;
+    float *SlowPPTTimeConstant;
+    float *ACLK;
+    float *DISPCLK;
+    float *DPREFCLK;
+    float *DPPCLK;
+    float *SMU_BUSY;
+    float *SMU_SKIP_COUNTER;
 } pm_table;
 
-void pm_table_0x380904(pm_table *pmt, void* base_addr);
-void pm_table_0x380905(pm_table *pmt, void* base_addr);
-void pm_table_0x380804(pm_table *pmt, void* base_addr);
-void pm_table_0x380805(pm_table *pmt, void* base_addr);
-void pm_table_0x400005(pm_table *pmt, void* base_addr);
-void pm_table_0x240903(pm_table *pmt, void* base_addr);
-void pm_table_0x240803(pm_table *pmt, void* base_addr);
+void pm_table_0x380904(pm_table *pmt, void* base_addr); //5900X: Zen3, 16 cores, version 4
+void pm_table_0x380905(pm_table *pmt, void* base_addr); //5900X: Zen3, 16 cores, version 5
+void pm_table_0x380804(pm_table *pmt, void* base_addr); //5600X: Zen3,  8 cores, version 4
+void pm_table_0x380805(pm_table *pmt, void* base_addr); //5600X: Zen3,  8 cores, version 5
+void pm_table_0x400005(pm_table *pmt, void* base_addr); //5700G: Zen3,  8 cores, GPU, version 5
+void pm_table_0x240903(pm_table *pmt, void* base_addr); //3700X: Zen2,  8 cores, version 3
+void pm_table_0x240803(pm_table *pmt, void* base_addr); //3950X: Zen2, 16 cores, version 3
 void pm_table_zenp_cpu(pm_table *pmt, void* base_addr);
 
 #endif

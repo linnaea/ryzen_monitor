@@ -37,7 +37,7 @@
 #include "readinfo.h"
 #include "pm_tables.h"
 
-#define PROGRAM_VERSION "1.0.4"
+#define PROGRAM_VERSION "1.0.6"
 
 smu_obj_t obj;
 static int update_time_s = 1;
@@ -101,19 +101,27 @@ void draw_screen(pm_table *pmt, system_info *sysinfo) {
     total_core_voltage = total_core_power = total_usage = total_core_CC6 = 0;
     core_number = 0;
 
-    package_sleep_time = pmta(PC6) / 100.f;
-    average_voltage = (pmta(CPU_TELEMETRY_VOLTAGE) - (0.2 * package_sleep_time)) / (1.0 - package_sleep_time);
+    if(pmt->PC6)
+    {
+        package_sleep_time = pmta(PC6) / 100.f;
+        average_voltage = (pmta(CPU_TELEMETRY_VOLTAGE) - (0.2 * package_sleep_time)) / (1.0 - package_sleep_time);
+    }
+    else
+    {
+        average_voltage = pmta(CPU_TELEMETRY_VOLTAGE);
+    }
 
     fprintf(stdout, "╭─────────┬────────────┬──────────┬─────────┬──────────┬─────────────┬─────────────┬─────────────╮\n");
     for (i = 0; i < pmt->max_cores; i++) {
         core_disabled = (sysinfo->core_disable_map >> i)&0x01;
         core_frequency = pmta(CORE_FREQEFF[i]) * 1000.f;
 
-        // "Real core frequency" -- excluding gating
-        if (pmta(CORE_FREQ[i]) != 0.f) {
+        core_voltage = pmta(CORE_VOLTAGE[i]); // True core voltage
+        // Rumours say this is how AMD calculates core voltage
+        //if (pmta(CORE_FREQ[i]) != 0.f) {
             core_sleep_time = pmta(CORE_CC6[i]) / 100.f;
             core_voltage = ((1.0 - core_sleep_time) * average_voltage) + (0.2 * core_sleep_time);
-        }
+        //}
 
         if (core_disabled) {
             if (show_disabled_cores)
@@ -169,7 +177,7 @@ void draw_screen(pm_table *pmt, system_info *sysinfo) {
     fprintf(stdout, "├── Reported by SMU ────────────────────────────┼────────────────────────────────────────────────┤\n");
     //print_line("Package Power", "%8.3f W", pmta(SOCKET_POWER)); //Is listed below in power section
     print_line("Peak Core Voltage", "%5.3f V", pmta(CPU_TELEMETRY_VOLTAGE));
-    print_line("Package CC6", "%6.2f %%", pmta(PC6));
+    if(pmt->PC6) print_line("Package CC6", "%6.2f %%", pmta(PC6));
     fprintf(stdout, "╰───────────────────────────────────────────────┴────────────────────────────────────────────────╯\n");
 
     fprintf(stdout, "╭── Electrical & Thermal Constraints ───────────┬────────────────────────────────────────────────╮\n");
@@ -177,7 +185,7 @@ void draw_screen(pm_table *pmt, system_info *sysinfo) {
     if (edc_value < pmta(TDC_VALUE)) edc_value = pmta(TDC_VALUE);
 
     print_line("Peak Temperature", "%8.2f C", pmta(PEAK_TEMP));
-    print_line("SoC Temperature", "%8.2f C", pmta(SOC_TEMP));
+    if(pmt->SOC_TEMP) print_line("SoC Temperature", "%8.2f C", pmta(SOC_TEMP));
     if(pmt->GFX_TEMP) print_line("GFX Temperature", "%8.2f C", pmta(GFX_TEMP));
     //print_line("Core Power", "%8.4f W", pmta(VDDCR_CPU_POWER));
 
@@ -193,6 +201,8 @@ void draw_screen(pm_table *pmt, system_info *sysinfo) {
     print_line("THM", "%7.2f C | %7.f C | %8.2f %%", pmta(THM_VALUE), pmta(THM_LIMIT), (pmta(THM_VALUE) / pmta(THM_LIMIT) * 100));
     if(pmt->THM_VALUE_SOC) print_line("THM SoC", "%7.2f C | %7.f C | %8.2f %%", pmta(THM_VALUE_SOC), pmta(THM_LIMIT_SOC), (pmta(THM_VALUE_SOC) / pmta(THM_LIMIT_SOC) * 100));
     if(pmt->THM_VALUE_GFX) print_line("THM GFX", "%7.2f C | %7.f C | %8.2f %%", pmta(THM_VALUE_GFX), pmta(THM_LIMIT_GFX), (pmta(THM_VALUE_GFX) / pmta(THM_LIMIT_GFX) * 100));
+    //if(pmt->STT_LIMIT_APU) print_line("STT APU", "%7.2f   | %7.f   | %8.2f %%", pmta(STT_VALUE_APU), pmta(STT_LIMIT_APU), (pmta(STT_VALUE_APU) / pmta(STT_LIMIT_APU) * 100)); //Always zero
+    //if(pmt->STT_LIMIT_DGPU) print_line("STT DGPU", "%7.2f   | %7.f   | %8.2f %%", pmta(STT_VALUE_DGPU), pmta(STT_LIMIT_DGPU), (pmta(STT_VALUE_DGPU) / pmta(STT_LIMIT_DGPU) * 100)); //Always zero
     print_line("FIT", "%7.f   | %7.f   | %8.2f %%", pmta(FIT_VALUE), pmta(FIT_LIMIT), (pmta(FIT_VALUE) / pmta(FIT_LIMIT)) * 100.f);
     fprintf(stdout, "╰───────────────────────────────────────────────┴────────────────────────────────────────────────╯\n");
 
@@ -213,11 +223,13 @@ void draw_screen(pm_table *pmt, system_info *sysinfo) {
 
     if(pmt->has_graphics){
     fprintf(stdout, "╭── Graphics Subsystem──────────────────────────┬────────────────────────────────────────────────╮\n");
-    print_line("GFX Voltage", "%7.4f V", pmta(GFX_VOLTAGE));
+    print_line("GFX Voltage | ROC Power", "%7.4f V | %8.3f W", pmta(GFX_VOLTAGE), pmta(ROC_POWER));
     print_line("GFX Temperature", "%8.2f C", pmta(GFX_TEMP));
-    print_line("GFX Clock Real | Effective", "%5.f MHz | %5.f MHz", pmta(GFX_FREQ), pmta(GFX_FREQEFF));
+    print_line("GFX Clock Real | Effective", "%5.f MHz | %6.f MHz", pmta(GFX_FREQ), pmta(GFX_FREQEFF));
     print_line("GFX Busy", "%8.2f %%", pmta(GFX_BUSY) * 100.f);
     print_line("GFX EDC Limit | Residency", "%7.3f A | %8.2f %%", pmta(GFX_EDC_LIM), pmta(GFX_EDC_RESIDENCY) * 100.f);
+    print_line("Display Count | FPS", "%2.f | %8.2f  ", pmta(DISPLAY_COUNT), pmta(FPS));
+    print_line("DGPU Power | Freq Target | Busy", "%7.3f W | %5.f MHz | %8.2f %%", pmta(DGPU_POWER), pmta(DGPU_FREQ_TARGET), pmta(DGPU_GFX_BUSY) * 100.f);
     fprintf(stdout, "╰───────────────────────────────────────────────┴────────────────────────────────────────────────╯\n");
     }
 
@@ -228,7 +240,9 @@ void draw_screen(pm_table *pmt, system_info *sysinfo) {
                                                                         //report, nor with what is actually consumed. but is
                                                                         //the value HWiNFO shows.
     print_line("VDDCR_SOC Power", "%7.3f W", pmta(VDDCR_SOC_POWER));
-    print_line("GMI2_VDDG Power", "%7.3f W", pmta(GMI2_VDDG_POWER));
+    if(pmt->IO_VDDCR_SOC_POWER) print_line("IO VDDCR_SOC Power", "%7.3f W", pmta(IO_VDDCR_SOC_POWER));
+    if(pmt->GMI2_VDDG_POWER) print_line("GMI2_VDDG Power", "%7.3f W", pmta(GMI2_VDDG_POWER));
+    if(pmt->ROC_POWER) print_line("ROC Power", "%7.3f W", pmta(ROC_POWER));
 
     //L3 caches (2 per CCD on Zen2, 1 per CCD on Zen3)
     l3_logic_power=0;
@@ -269,8 +283,11 @@ void draw_screen(pm_table *pmt, system_info *sysinfo) {
     print_line("","");
     print_line("VDDIO_MEM Power", "%7.3f W", pmta(VDDIO_MEM_POWER));
     print_line("IOD_VDDIO_MEM Power", "%7.3f W", pmta(IOD_VDDIO_MEM_POWER));
-    print_line("DDR_VDDP Power", "%7.3f W", pmta(DDR_VDDP_POWER));
+    if(pmt->DDR_VDDP_POWER) print_line("DDR_VDDP Power", "%7.3f W", pmta(DDR_VDDP_POWER));
+    if(pmt->DDR_PHY_POWER) print_line("DDR Phy Power", "%7.3f W", pmta(DDR_PHY_POWER));
     print_line("VDD18 Power", "%7.3f W", pmta(VDD18_POWER)); //Same as pmta(IO_VDD18_POWER)
+    if(pmt->IO_DISPLAY_POWER) print_line("CPU Display IO Power", "%7.3f W", pmta(IO_DISPLAY_POWER));
+    if(pmt->IO_USB_POWER) print_line("CPU USB IO Power", "%7.3f W", pmta(IO_USB_POWER));
 
     if(!pmt->powersum_unclear) {
     //The sum is the thermal output of the whole package. Yes, this is higher than PPT and SOCKET_POWER.
@@ -310,18 +327,45 @@ int select_pm_table_version(unsigned int version, pm_table *pmt, unsigned char *
             return 0;
     }
 
-    //Avoid accesing bejond bounds of the defined arrays.
+    //Avoid access bejond bounds of the defined arrays.
     if (pmt->max_l3 > PMT_MAX_NUM_L3) pmt->max_l3 = PMT_MAX_NUM_L3;
     if (pmt->max_cores > PMT_MAX_NUM_CORES) pmt->max_cores = PMT_MAX_NUM_CORES;
 
+    //APML_POWER is probably identical to PACKAGE_POWER
+    if (pmt->PACKAGE_POWER == NULL) pmt->PACKAGE_POWER = pmt->APML_POWER;
+
+    if (pmt->VDD18_POWER == NULL) pmt->VDD18_POWER = pmt->IO_VDD18_POWER;
+
     return 1;
+}
+
+void disabled_cores_0x400005(pm_table *pmt, system_info *sysinfo) {
+    int i, mask;
+    float power, voltage, fit, iddmax, freq, freqeff, c0, cc1, irm;
+    for (i = 0; i < 8; i++) {
+        power = pmta(CORE_POWER[i]);
+        voltage = pmta(CORE_VOLTAGE[i]);
+        fit = pmta(CORE_FIT[i]);
+        iddmax = pmta(CORE_IDDMAX[i]);
+        freq = pmta(CORE_FREQ[i]);
+        freqeff = pmta(CORE_FREQEFF[i]);
+        c0 = pmta(CORE_C0[i]);
+        cc1 = pmta(CORE_CC1[i]);
+        irm = pmta(CORE_IRM[i]);
+        
+        if (power == 0 && voltage == 0 && fit == 0 && iddmax == 0 && freq == 0 && freqeff == 0 && c0 == 0 && cc1 == 0 && irm == 0 ) {
+            mask = 1 << i;
+        } else {
+            mask = 0 << i;
+        }
+        sysinfo->core_disable_map_pmt = sysinfo->core_disable_map_pmt | mask;
+    }
 }
 
 void start_pm_monitor(unsigned int force) {
     unsigned char *pm_buf;
     pm_table pmt;
     system_info sysinfo;
-
 
     if (!smu_pm_tables_supported(&obj)) {
         fprintf(stderr, "PM Tables are not supported on this platform.\n");
@@ -356,6 +400,14 @@ void start_pm_monitor(unsigned int force) {
     sysinfo.cpu_name    = get_processor_name();
     sysinfo.codename    = smu_codename_to_str(&obj);
     sysinfo.smu_fw_ver  = smu_get_fw_version(&obj);
+
+    //PMT hack for Cezanne's core_disabled_map 
+    if (obj.pm_table_version == 0x400005) {
+        if (smu_read_pm_table(&obj, pm_buf, obj.pm_table_size) == SMU_Return_OK) {
+            disabled_cores_0x400005(&pmt, &sysinfo);
+        }
+    }
+    
     get_processor_topology(&sysinfo, pmt.zen_version);
 
     switch (obj.smu_if_version) {
