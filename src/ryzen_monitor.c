@@ -83,14 +83,11 @@ void draw_screen(pm_table *pmt, system_info *sysinfo) {
         fprintf(stdout, "╭───────────────────────────────────────────────┬────────────────────────────────────────────────╮\n");
         print_line("CPU Model", sysinfo->cpu_name);
         print_line("Processor Code Name", sysinfo->codename);
-        print_line("Cores", "%d", sysinfo->cores);
-        print_line("Core CCDs", "%d", sysinfo->ccds);
-        if (pmt->zen_version!=3) {
-            print_line("Core CCXs", "%d", sysinfo->ccxs);
-            print_line("Cores Per CCX", "%d", sysinfo->cores_per_ccx);
-        }
-        else
-            print_line("Cores Per CCD", "%d", sysinfo->cores_per_ccx); //Zen3 does not have CCXs anymore
+        if (pmt->zen_version<3) {
+            print_line("Core Topology", "%d CCD * %d CCX * %d = %2d Cores", sysinfo->ccds, sysinfo->ccxs, sysinfo->cores_per_ccx, sysinfo->cores);
+        } else {
+            print_line("Core Topology", "%d CCD * %d = %2d Cores", sysinfo->ccds, sysinfo->cores_per_ccx, sysinfo->cores);
+	}
         print_line("SMU FW Version", "v%s", sysinfo->smu_fw_ver);
         print_line("MP1 IF Version", "v%d", sysinfo->if_ver);
         fprintf(stdout, "╰───────────────────────────────────────────────┴────────────────────────────────────────────────╯\n");
@@ -184,34 +181,38 @@ void draw_screen(pm_table *pmt, system_info *sysinfo) {
     edc_value = pmta(EDC_VALUE) * (total_usage / sysinfo->cores / 100);
     if (edc_value < pmta(TDC_VALUE)) edc_value = pmta(TDC_VALUE);
 
-    print_line("Peak Temperature", "%8.2f C", pmta(PEAK_TEMP));
+    if(pmt->PEAK_TEMP) print_line("Peak Temperature", "%8.2f C", pmta(PEAK_TEMP));
     if(pmt->SOC_TEMP) print_line("SoC Temperature", "%8.2f C", pmta(SOC_TEMP));
     if(pmt->GFX_TEMP) print_line("GFX Temperature", "%8.2f C", pmta(GFX_TEMP));
     //print_line("Core Power", "%8.4f W", pmta(VDDCR_CPU_POWER));
 
-    print_line("Voltage from Core VRM", "%7.3f V | %7.3f V | %8.2f %%", pmta(VID_VALUE), pmta(VID_LIMIT), (pmta(VID_VALUE) / pmta(VID_LIMIT) * 100));
+    if(pmt->VID_VALUE || pmt->VID_VALUE || pmt->VID_VALUE) print_line("Voltage from Core VRM", "%7.3f V | %7.3f V | %8.2f %%", pmta(VID_VALUE), pmta(VID_LIMIT), (pmta(VID_VALUE) / pmta(VID_LIMIT) * 100));
     //if(pmt->STAPM_VALUE) print_line("STAPM", "%7.3f   | %7.f   | %8.2f %%", pmta(STAPM_VALUE), pmta(STAPM_LIMIT), (pmta(STAPM_VALUE) / pmta(STAPM_LIMIT) * 100));
     print_line("PPT", "%7.3f W | %7.f W | %8.2f %%", pmta(PPT_VALUE), pmta(PPT_LIMIT), (pmta(PPT_VALUE) / pmta(PPT_LIMIT) * 100));
     if(pmt->PPT_VALUE_APU) print_line("PPT APU", "%7.3f W | %7.f W | %8.2f %%", pmta(PPT_VALUE_APU), pmta(PPT_LIMIT_APU), (pmta(PPT_VALUE_APU) / pmta(PPT_LIMIT_APU) * 100));
-    print_line("TDC Value", "%7.3f A | %7.f A | %8.2f %%", pmta(TDC_VALUE), pmta(TDC_LIMIT), (pmta(TDC_VALUE) / pmta(TDC_LIMIT) * 100));
+    print_line("TDC", "%7.3f A | %7.f A | %8.2f %%", pmta(TDC_VALUE), pmta(TDC_LIMIT), (pmta(TDC_VALUE) / pmta(TDC_LIMIT) * 100));
     if(pmt->TDC_ACTUAL) print_line("TDC Actual", "%7.3f A | %7.f A | %8.2f %%", pmta(TDC_ACTUAL), pmta(TDC_LIMIT), (pmta(TDC_ACTUAL) / pmta(TDC_LIMIT) * 100));
-    if(pmt->TDC_VALUE_SOC) print_line("TDC Value, SoC only", "%7.3f A | %7.f A | %8.2f %%", pmta(TDC_VALUE_SOC), pmta(TDC_LIMIT_SOC), (pmta(TDC_VALUE_SOC) / pmta(TDC_LIMIT_SOC) * 100));
+    if(pmt->TDC_VALUE_SOC) print_line("SoC TDC", "%7.3f A | %7.f A | %8.2f %%", pmta(TDC_VALUE_SOC), pmta(TDC_LIMIT_SOC), (pmta(TDC_VALUE_SOC) / pmta(TDC_LIMIT_SOC) * 100));
     print_line("EDC", "%7.3f A | %7.f A | %8.2f %%", edc_value, pmta(EDC_LIMIT), (edc_value / pmta(EDC_LIMIT) * 100));
-    if(pmt->EDC_VALUE_SOC) print_line("EDC, SoC only", "%7.3f A | %7.f A | %8.2f %%", pmta(EDC_VALUE_SOC), pmta(EDC_LIMIT_SOC), (pmta(EDC_VALUE_SOC) / pmta(EDC_LIMIT_SOC) * 100));
+    if(pmt->EDC_VALUE_SOC) print_line("SoC EDC", "%7.3f A | %7.f A | %8.2f %%", pmta(EDC_VALUE_SOC), pmta(EDC_LIMIT_SOC), (pmta(EDC_VALUE_SOC) / pmta(EDC_LIMIT_SOC) * 100));
     print_line("THM", "%7.2f C | %7.f C | %8.2f %%", pmta(THM_VALUE), pmta(THM_LIMIT), (pmta(THM_VALUE) / pmta(THM_LIMIT) * 100));
-    if(pmt->THM_VALUE_SOC) print_line("THM SoC", "%7.2f C | %7.f C | %8.2f %%", pmta(THM_VALUE_SOC), pmta(THM_LIMIT_SOC), (pmta(THM_VALUE_SOC) / pmta(THM_LIMIT_SOC) * 100));
-    if(pmt->THM_VALUE_GFX) print_line("THM GFX", "%7.2f C | %7.f C | %8.2f %%", pmta(THM_VALUE_GFX), pmta(THM_LIMIT_GFX), (pmta(THM_VALUE_GFX) / pmta(THM_LIMIT_GFX) * 100));
+    if(pmt->THM_VALUE_SOC) print_line("SoC THM", "%7.2f C | %7.f C | %8.2f %%", pmta(THM_VALUE_SOC), pmta(THM_LIMIT_SOC), (pmta(THM_VALUE_SOC) / pmta(THM_LIMIT_SOC) * 100));
+    if(pmt->THM_VALUE_GFX) print_line("GFX THM", "%7.2f C | %7.f C | %8.2f %%", pmta(THM_VALUE_GFX), pmta(THM_LIMIT_GFX), (pmta(THM_VALUE_GFX) / pmta(THM_LIMIT_GFX) * 100));
     //if(pmt->STT_LIMIT_APU) print_line("STT APU", "%7.2f   | %7.f   | %8.2f %%", pmta(STT_VALUE_APU), pmta(STT_LIMIT_APU), (pmta(STT_VALUE_APU) / pmta(STT_LIMIT_APU) * 100)); //Always zero
     //if(pmt->STT_LIMIT_DGPU) print_line("STT DGPU", "%7.2f   | %7.f   | %8.2f %%", pmta(STT_VALUE_DGPU), pmta(STT_LIMIT_DGPU), (pmta(STT_VALUE_DGPU) / pmta(STT_LIMIT_DGPU) * 100)); //Always zero
     print_line("FIT", "%7.f   | %7.f   | %8.2f %%", pmta(FIT_VALUE), pmta(FIT_LIMIT), (pmta(FIT_VALUE) / pmta(FIT_LIMIT)) * 100.f);
     fprintf(stdout, "╰───────────────────────────────────────────────┴────────────────────────────────────────────────╯\n");
 
     fprintf(stdout, "╭── Memory Interface ───────────────────────────┬────────────────────────────────────────────────╮\n");
-    print_line("Coupled Mode", "%8s", pmta(UCLK_FREQ) == pmta(MEMCLK_FREQ) ? "ON" : "OFF");
-    print_line("Fabric Clock (Average)", "%5.f MHz", pmta(FCLK_FREQ_EFF));
-    print_line("Fabric Clock", "%5.f MHz", pmta(FCLK_FREQ));
-    print_line("Uncore Clock", "%5.f MHz", pmta(UCLK_FREQ));
-    print_line("Memory Clock", "%5.f MHz", pmta(MEMCLK_FREQ));
+    if(pmt->zen_version > 1) {
+        print_line("Coupled Mode", "%8s", pmta(UCLK_FREQ) == pmta(MEMCLK_FREQ) ? "ON" : "OFF");
+        if(pmt->FCLK_FREQ_EFF) print_line("Fabric Clock (Average)", "%5.f MHz", pmta(FCLK_FREQ_EFF));
+        print_line("Fabric Clock", "%5.f MHz", pmta(FCLK_FREQ));
+        print_line("Uncore Clock", "%5.f MHz", pmta(UCLK_FREQ));
+        print_line("Memory Clock", "%5.f MHz", pmta(MEMCLK_FREQ));
+    } else {
+        print_line("Memory/Fabric Clock", "%5.f MHz", pmta(FCLK_FREQ));
+    }
     //print_line("VDDCR_Mem", "%7.3f W", pmta(VDDIO_MEM_POWER)); //Is listed below in power section
     //print_line("VDDCR_SoC", "%7.3f V", pmta(SOC_SET_VOLTAGE)); //Might be the default voltage, not the actually set one
     print_line("cLDO_VDDM", "%7.4f V", pmta(V_VDDM));
@@ -281,11 +282,11 @@ void draw_screen(pm_table *pmt, system_info *sysinfo) {
 
     //These powers are supplied by other power lines to the CPU and are drawn from the 24 pin ATX connector on most boards
     print_line("","");
-    print_line("VDDIO_MEM Power", "%7.3f W", pmta(VDDIO_MEM_POWER));
-    print_line("IOD_VDDIO_MEM Power", "%7.3f W", pmta(IOD_VDDIO_MEM_POWER));
+    if(pmt->VDDIO_MEM_POWER) print_line("VDDIO_MEM Power", "%7.3f W", pmta(VDDIO_MEM_POWER));
+    if(pmt->IOD_VDDIO_MEM_POWER) print_line("IOD_VDDIO_MEM Power", "%7.3f W", pmta(IOD_VDDIO_MEM_POWER));
     if(pmt->DDR_VDDP_POWER) print_line("DDR_VDDP Power", "%7.3f W", pmta(DDR_VDDP_POWER));
     if(pmt->DDR_PHY_POWER) print_line("DDR Phy Power", "%7.3f W", pmta(DDR_PHY_POWER));
-    print_line("VDD18 Power", "%7.3f W", pmta(VDD18_POWER)); //Same as pmta(IO_VDD18_POWER)
+    if(pmt->VDD18_POWER) print_line("VDD18 Power", "%7.3f W", pmta(VDD18_POWER)); //Same as pmta(IO_VDD18_POWER)
     if(pmt->IO_DISPLAY_POWER) print_line("CPU Display IO Power", "%7.3f W", pmta(IO_DISPLAY_POWER));
     if(pmt->IO_USB_POWER) print_line("CPU USB IO Power", "%7.3f W", pmta(IO_USB_POWER));
 

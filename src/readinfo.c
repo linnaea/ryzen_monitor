@@ -135,6 +135,10 @@ void get_processor_topology(system_info *sysinfo, unsigned int zen_version) {
         sysinfo->core_disable_map |= (core_disable_map_tmp & 0xff)<<8;
     }
 
+    if(zen_version == 1) {
+        ccd_enable_map = 0xf >> (3-((ecx >> 8)&7));
+        sysinfo->core_disable_map = ccds_down & 0xff;
+    }
 
     if (!threads_per_core)
         sysinfo->cores = logical_cores;
@@ -144,6 +148,7 @@ void get_processor_topology(system_info *sysinfo, unsigned int zen_version) {
     switch(zen_version)
     {
         case 3:
+        default:
             //Zen3 does not have CCXs anymore. They now have 8 cores per CCD
             //each with the same access to each other and the common L3 cache.
             if (model != 0x50) {// Exclude Cezanne
@@ -160,7 +165,7 @@ void get_processor_topology(system_info *sysinfo, unsigned int zen_version) {
             sysinfo->enabled_cores_count = 8*(sysinfo->ccds) - count_set_bits(sysinfo->core_disable_map);
             break;
         case 2:
-        default:
+	case 1:
             sysinfo->cores_per_ccx = (8 - count_set_bits(sysinfo->core_disable_map & 0xff)) / 2;
             sysinfo->ccds = count_set_bits(ccd_enable_map);
             sysinfo->ccxs = sysinfo->cores == sysinfo->cores_per_ccx ? 1 : sysinfo->ccds * 2;
